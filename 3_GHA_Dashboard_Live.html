@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+<meta name="theme-color" content="#060a0f">
+<title>Global Health Action — Internship Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400;1,600;1,700&family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<style>
+:root{--bg:#060a0f;--sf:#0c1219;--sf2:#111a24;--bd:#1a2636;--tx:#cccccc;--ts:#999999;--tt:#666666;--ac:#3ecf8e;--hl:#e2eaf2;--r:12px}
+.light{--bg:#f3f5f7;--sf:#fff;--sf2:#f0f2f5;--bd:#dce1e8;--tx:#333333;--ts:#999999;--tt:#bbbbbb;--ac:#1a9960;--hl:#333333}
+*{margin:0;padding:0;box-sizing:border-box}
+html{overflow-x:hidden}
+body{font-family:'Open Sans',sans-serif;background:var(--bg);color:var(--ts);-webkit-font-smoothing:antialiased}
+
+/* Header */
+.hd{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--bg) 80%,transparent);backdrop-filter:blur(16px);border-bottom:1px solid var(--bd);padding:10px 20px;display:flex;align-items:center;justify-content:space-between}
+.hd-l{display:flex;align-items:center;gap:10px}
+.hd-l img{height:34px;border-radius:6px}
+.hd-l h1{font-size:14px;font-weight:700;color:var(--hl)}
+.hd-l p{font-size:10px;color:var(--ts)}
+.tbtn{width:36px;height:36px;border-radius:8px;border:1px solid var(--bd);background:none;color:var(--tx);cursor:pointer;font-size:16px}
+
+/* Tabs */
+.tabs{display:flex;gap:2px;padding:3px;background:var(--sf2);border-radius:10px;width:fit-content;margin:14px 0}
+.tab{padding:7px 18px;border-radius:8px;border:none;cursor:pointer;font-family:inherit;font-size:12px;font-weight:400;background:none;color:var(--ts)}
+.tab.on{background:var(--ac);color:#fff;font-weight:700}
+
+/* KPI */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.kp{padding:14px;background:var(--sf);border:1px solid var(--bd);border-radius:var(--r)}
+.kp-l{font-size:12px;color:var(--ts);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.kp-v{font-size:28px;font-weight:700;letter-spacing:-1px;color:var(--hl)}
+.kp-s{font-size:11px;color:var(--tt);margin-top:2px}
+
+/* Cards — NO FLEX, just block */
+.cd{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:16px;margin-bottom:12px}
+.cd h3{font-size:14px;font-weight:700;margin-bottom:12px;color:var(--hl)}
+.cd h3 i{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--ac);margin-right:6px}
+
+/* Chart wrappers — BLOCK with explicit height, position relative */
+.ch-wrap{position:relative;width:100%;height:200px}
+.ch-donut{width:120px;height:120px;margin:0 auto 10px;position:relative}
+
+/* Gender bars */
+.gb{display:flex;align-items:center;gap:6px;margin-bottom:8px;font-size:14px}
+.gb span:first-child{width:8px;height:8px;border-radius:3px;flex-shrink:0}
+.gb-t{background:var(--sf2);border-radius:4px;height:6px;flex:1;overflow:hidden}
+.gb-f{height:100%;border-radius:4px}
+.gb b{width:auto;text-align:right;font-family:'Open Sans',sans-serif;font-size:12px;font-weight:700}
+
+/* Cohort legend */
+.cl{display:flex;align-items:center;gap:6px;margin-bottom:7px;font-size:13px}
+.cl span:first-child{width:8px;height:8px;border-radius:3px;flex-shrink:0}
+.cl em{flex:1;color:var(--ts);font-style:normal}
+.cl b{font-family:'Open Sans',sans-serif;font-size:12px;white-space:nowrap;font-weight:700}
+
+/* Overview grid */
+.ov-row{display:grid;grid-template-columns:1fr 1.3fr 1fr;gap:10px;margin-bottom:10px}
+
+/* Countries chart scrollable */
+.ch-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.ch-scroll-inner{min-width:700px;height:290px;position:relative}
+
+/* Country bars (By Country tab) */
+.cb{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.cb-n{font-size:12px;font-weight:400;width:100px;text-align:right;flex-shrink:0}
+.cb-bg{flex:1;background:var(--sf2);border-radius:4px;height:20px;overflow:hidden}
+.cb-f{height:100%;border-radius:4px;display:flex;align-items:center;justify-content:flex-end;padding-right:6px}
+.cb-f span{font-size:9px;font-weight:700;color:#fff;font-family:'Open Sans',sans-serif}
+
+/* Map */
+.mc h2{font-size:16px;font-weight:700;color:var(--hl);margin-bottom:2px}
+.mc .sub{font-size:11px;color:var(--ts);margin-bottom:12px}
+#mapBox{width:100%;border-radius:10px;overflow:hidden;position:relative}
+#mapBox svg{width:100%;display:block}
+.mtt{position:absolute;padding:5px 10px;background:var(--sf);border:1px solid var(--bd);border-radius:6px;font-size:11px;pointer-events:none;opacity:0;box-shadow:0 4px 12px rgba(0,0,0,.3);z-index:10;white-space:nowrap}
+.mtt b{color:var(--ac)}
+.ml{display:flex;align-items:center;gap:6px;margin-top:12px;font-size:10px;color:var(--ts)}
+.ml-bar{height:8px;border-radius:3px;flex:1;max-width:240px}
+
+/* Sections */
+.sec{display:none}
+.sec.on{display:block}
+
+.wrap{max-width:1400px;margin:0 auto;padding:0 20px 20px}
+.ft{text-align:center;padding:16px 0;font-size:10px;color:var(--tt)}
+.ft em{font-family:'Playfair Display',serif;font-style:italic;color:var(--ts)}
+.pf-em{font-family:'Playfair Display',serif;font-style:italic}
+
+/* ═══ RESPONSIVE ═══ */
+@media(max-width:960px){
+  .ov-row{grid-template-columns:1fr 1fr}
+  .kpis{grid-template-columns:repeat(4,1fr)}
+}
+@media(max-width:768px){
+  .ov-row{grid-template-columns:1fr 1fr}
+  .kpis{grid-template-columns:1fr 1fr}
+  .hd-l img{height:28px}
+}
+@media(max-width:600px){
+  .wrap{padding:0 12px 12px}
+  .hd{padding:8px 12px}
+  .hd-l h1{font-size:13px}
+  .hd-l p{display:none}
+  .hd-l img{height:26px}
+  .ov-row{grid-template-columns:1fr}
+  .kpis{grid-template-columns:1fr 1fr}
+  .kp-v{font-size:22px}
+  .tab{padding:7px 14px;font-size:11px}
+  .cb-n{width:80px;font-size:11px}
+}
+</style>
+</head>
+<body>
+
+<div class="hd">
+  <div class="hd-l">
+    <img src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/2wBDAQUFBQcGBw4ICA4eFBEUHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7/wAARCABQAJQDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDz3W728GtXwF3cAfaZf+Wrf3z71Vju9QkkWOO5u3diFVVkYkk8AAZ5NbutXeh6hq96uo2kmn3H2mQfabFA0b/OeXhJAB90Yf7tXtL0UaXpjavp+saVc3tzuj08vcfZ2jUZEkwEu35h9xcE4JYg5UV9NzJLVH5r7KUpuz0/roS+H9mla3b2VxdS3OpKWlu5DKXjsUjUu6qM4eYKpG45VTwASMitD4h1fxVd6tb399cyXd+PtNr+9b5ZogSsa89DHuQD1C0vhfw3qsMupPItkg/su5VWOoW+ASmOu/pgnms200620y7ivLnxHYwTQOJEWyzdSBlORjbhOo7vU2i2+5reoorSy/r8SDSPEGp2oNo0017ZTsDJaSSuVc9AVIOVf0ZefqOK6HUopvClv/adve3txdzkx26ySHdprFckTYOPPAPyjoB83UbVq+JdStNKvBc+GLEWUWoxfaYrx23TqHJDxoekW1gy/L83H3uawND1FbO4kju0eewul8u7hB5dc5DL6Op+ZT68dCcu3NqkRzqm+Ru779v6/wCGK3269/5/Ln/v83+NamleJb2C3/s/UJJ77TWYsYGnZWjY9Xifqjfmp7g1Q1rT30zUHtmkWaMgSQzKMLNGwyrj2I7djkdRVKtLKSOfnnTlvqe0fs8209v8ZNEuIdQnvtMuobryJmYjJERyjrk7ZFyMj3BBIINfSfxP8YW3gbwddeIbi0lvDE0cUNvGwUyySMFRdx4UZPJ7Cvl39lO9uIvi1ZWSODb3EMxkRhkbljYqw9GHIyOxI717h+1b/wAkmf8A7Clj/wCj1rxMwVqq9D7TIGpYZtd3+SN/4WeOrzxZPrWla14fk0HXNFmjjvLQ3CzoBIm9GVx1yOo7VoHxhGvxU/4QV7Jt76R/acd0H44l2MhXHHYg59aofD/xB4X1rxn4wttH0O40/V7C6jh1aea2EbXLAMsbAgksNqnBOOCPWufuP+TsLb/sT3/9KRXCe4eru6ohd2CqOpJwBS54yOa8d/aDsode8Y/DrwpqTTSaPqupXIvbZJWQTbIcpkqQeCSaufst3NzN8LWt57iWaOy1S9tLfzHLFIkmIRMnkgDgUAdR4M8aDxF4s8WaCbAWp8P3kdsJfO3faN8e/dtwNuOmMmuuPAya+P8A4maNYvrPxT8VATx6vpPiHTlsriKd0MQfyw3AOCfc9K+qvGN3YWHhHV73VI5JLGCxmkuUj+80YQlgOnJGaANVXVvusG+hzXLeMPGMfhzxV4V0SWxadfEF3LaLKr4MLLHvBIxyD06jHXmvCfgCbS3+Nlh/YnhbVPC2l6j4akuUtbu/NwLtfMQpMDk4GDgA+/rXo/xs/wCSnfCj/sOTf+iDQB6yOlFA6CigD87dWikm8Q3cMS7pJLyREHqxkIA/OrPjGVG1yWzgbNtYKLKD0Kx/KT/wJtzf8Cq7oaCT4l2wYZA1UuR/uyFv6Vzbu0jGRySzncSe5PNfUR1aPzGekX5v8v8AhzY8FKJNfS04H2yCe16d5InVf/HitY2SQCfSprC6ksr63vYf9bbyrKn+8pBH8qveK7WK08QXaW//AB7SP59ufWKQB0/8dYD8Ke0iXrT9H+f/AAxYsf8AiZeF7qxPNxpzG8g9TE2FmX8Pkf8AB6w60fDM9zba9aS2trJeSB8G3jQs0yEEOmBydylh+Na+teGrHQtVng1fVQkaNuggtlEtxJGeULc7I8qR9456/KaXMouxfI6kFJdNP8ipZ/8AE28OS2R+a800NPberwE/vY/faT5gHoZKZH4dngjWfWriLSIWG5RcAmdx/swj5j9W2j3q3pfioaLqNvcaFpsNkkTgu7HzbiZf4lMhHygjIwgXrWZ4mtPsWu3cCzPPGX8yKV2y0sbgOjE9yVYfjSXNe2xUuTlUt2tPLy/rQ9S/ZqudHX4v6Xa6Zp8rEw3G68u3zKcRN91FO1AffcfevaP2qYJpfhBdyxRPIlte2lxMUUnZGkylmIHYDk14H+y1/wAlo0n/AK43P/opq+tvG3ibRvCehNq2uyPHZebHASkRkJaRgqjA7EmvHzFWqr0PruH5c2Gb83+SPOPgRqdl4i+JXxJ8T6NMbvR766sVtbsIypKUgIcLuAPBxn6irVwR/wANY2wzz/wh7/8ApSK7nw5r+g3ut6x4a0keXc6G0SXcKwGNIzKu9dpxg5HpW4YofP8APMaebt279o3Y9M+lcB7p5B+0Bf2mheOfht4l1aQ22kadqdz9ruyjMkO+HC7sAnkg4q1+yvFKvwse5aJ0hvNWvrm3ZlI8yJ5iVcZ7HtXqlzBBdQNBcwxzRN95JFDKfqDxT0VEQIgVVUYCgYAFAHyB8T9b0uDUvit4akux/bGqeIdNaytFRmeYIY92MDHHoa+mPizFJN8LvFEUMbSSPpFyFRRkk+U3AFWfF2reHfCunnX9cWG2gWeKN7nyNxRpHCKSQM4yRk9hWnrmp2mi6Le6vfuyWllA88zKpYhEBJIA5PA6UAfOXwP8QaNrvxY8FR6TfR3Tad4E+x3YVWHlTLIhZDkDJGRyMiu/+NhH/CzvhRyP+Q5N/wCiDXovhm40fVdJstd0iCIW99brPDIIAjFHAYZGMj6VW8PeI9C8TX+qW+nsZ59EvmsrnzICvlzKOQpI54PUUAbw6CiiigD4A0mZLf4jwTSHCDVcMfQGUg/oawbqB7a5ltpBh4XaNh6FTg/yrZn0e/1DV9RuIFSG2iu5BJdTyCKKM7z1c8Z74GT7Vr+KzoNteprSxPrEmpJ54wWitFlB2yjtI/zgnHycMOua+mUrNH5q6blF30szltL02/1OYxWFpLcMoy5UfKg9WY8KPckV1N5Z6OPDlreajdnUrvTCLSaDT5Bs2MWaLfMQRgHevyBuijIrnNU1rUNQhW2mmWO0U5S1gQRQp9EXjPucn3p3hu9gtb54b4t9gu4zb3eBkqjEEOB6owVx/u4705KT1JpzhF8q69/8iS68QXjW72lhHDpdm4w0NmCpcf7bkl3/AOBHHtUlx/xMvCkFwObjSnFvL7wOSYz/AMBfev8AwJKzdVsZ9N1GexuQvmwttJU5Vh1DA91IIIPcEVc8LXcFvqghvG22V4jWt0f7qPj5/wDgLBX/AOA02kldEqUnLln6GVW3rP8ApfhzR9Q5LxCSwlP/AFzIdP8AxyQD/gFVV0PV5NUudNgsJ7i6tpGjmWJCwQg4JJ6AcdTXQ2egXH/CJala3uo6TaNDd29wBJfIxTIkjbIj3YzlfypSktGOlTm7q39I3v2Wv+S0aT/1xuf/AEU1e7/tYsqfCKV3YKq6nZMxPQATrk143+zTpUVr8X9LnTWtJutsNwPLgmcucxN0DIM17J+1gob4RyKwDKdTsgQRwR5614+Yu9Veh9hw9FxwzT7v8kVvglqenaz8Xvihqek3tvfWU8+nmKeBw6OBAwOCOvII/Cqvxq17xfL4+fw34d8SzeH7fTvDVxrskkFukr3EkbkCNt3RcDt685q98GrGy034yfFKy06zt7O1iuNOEcMEYjRMwEnCjgckn8a5r4waFpOvfH02+u6tqml6db+DpbmeXT7jypHRZm3IeDuUgnK45wK4D3T1/wCFuu3fib4c+H9fv1jW7v8AT4p5hGMLvZRnA7DPavFZPH97Z/GfRtL0T4pzeI4L7Xms73Sm01UitYmLfKsuPnKnCgg9q9q+FseiQ/DrQI/DdxcXGjrYxiyluBiR4sfKWGBzj2FfN3gzy/sPw9xs8z/hY17nGN2Nz/jigD1/9q//AJItqP8A192f/pQldb8X/wDklPir/sD3X/opq5L9q/8A5ItqP/X3Z/8ApQldb8X/APklPir/ALA91/6KagDE/Z203VNP+FWjPqWvTaqt1ZwT2yyQqn2SIxLiEY+8Bjqeea8TfVPFPhjxP4z8UaF4jktLVPHyWNxpht0eK5811DMzHkfKcYH1r6B+C8sZ+FXhSESIZF0W1YpuGQDGMHHpwfyr578Vf8gbx3/2U+1/9GLQB9aDpRSL0/GigD87NdJ/tm+GTgXUpA9PnNXdBmgvLOXQb2VIUmfzbSeQ4WCfGPmPZHACsexCt2Nb3jDQPB9pqV49v49ivpTPITFDpM3ynccjcSBxXEyhFkZY3LoDwxXGR9K+ni1OOh+Z1IypTd7P5p/kPvLaezupbW6heGeJykkbjDKw6g1FW5BqFlqlrHZa47RTRIEttQVS7Io6JKo5dB2I+ZRx8wwBT1XRr/To1nmjWW0c/u7uBvMgk+jjjPscEdwKpS6MzlT+1HVF+3H9v6SlmOdVsIyLf1uYBkmP3dOSvquV6qoKCwsNFjWXW4zdXzKGTTlcqEBGQZ2HK5HPlr83qV7rpBGhadFrzAf2hMx/sxT/AMstpw1x9VPCf7QJ/h5dMbTxKxnM0NnrbnMolYJDeserhjxHIe4OFY8ggnBjr5GySaTfxf1+P9blnxbq+oa5oen6i85WAZtbm1i+SFJUGUbYOPmj28nJyjc1Q0b5fC+vseFK20Y/3jNu/kpq74f0nVPtd14avdOu4X1GPbCrwNxcJlomHHQnKZHGJDV26sdM8O+HoLLWp0nvppvtdzptvJmRSqlYo5nHEeAzswGW+YDCkEhXS91F8s5P2ku2t++3/BOq/ZY051+J2mapcSiGNkuI7VCMtcOIzvx6Ko6t6kDrnH1T4y0HQvEehSWHiO3SfT0dLhw8pjVTGdysWBGACM9a+U/2cNRudT+Oek3FyUGLa4jjjjXbHEghbCIv8Kj0+pOSSa9u/askdfhBdQq7COe/s4ZVBwHRp1yp9QfSvIzC/tVfsfV8P8v1Z8vd/kjuPC+meGBqWqeJvD7W08+svGby6t7jzUmaNdq9CVGBxxiqfjz4deDvHMtpL4n0WK+ltMiKTzHjYKTkqSpBKn0NcR8DdNsdB+KfxN0HR7VLHS7W5sGt7SLIjjLW5LEDsT3q/wDFf4i+JdA8Ux+G/CPh+y1S9i0qTV7xry4aNRbo20qgUZZzg/pwa4T3D02xtbaxsobKzgjgtoI1jiijXCoqjAAHYACuC0j4WfC+TxIvi3SdFs21CK8a4W4trpyizhiWO1W2g5JyMde1dZ4N1tfEnhTS9eS1mtBf2sdx5Eww8RYAlT7g8V5L+ybNr/8AYus20un2SaCuqXr290sx855zcHerJ0CgdD3oA9U8VaR4c8WWU/hjW1gvI28ueW088q4CuGRiFIYDcBz0rW1CztdQsLiwvYEntbiJoponGVdGGCD7EGuB0rU7N/2htY0pdDsY7uPw9BM2pLu8+RDLgRHttB5HfNO+K/jfX9A1rQfDPhLR7LUtd1rz3iF7OYoI44VDOSRySc8dOlAGz4D+HvhHwObhvDWki0kuVVJZGmeV2Rc7Vy5JCjJwBxzTLv4ceDbqG/hn0cOmoaourXI8+Qb7pSCsn3uOQOBx7VJ8KfFy+OfAeneJfsf2OS5DrLBv3BJEcowB7jKnB9K8v1X40eLtP8TatnwxpU3hzTPEi6HNcLdstwWdwqsEIweCD6UAe80UDmigD87NYR5devI40Z3e7kVVUZLEucADuam8QaFeaC8dtqu23v2UO9mTmWFSMjzB/Ax67TyB1A4r234gXvhH4QfadO8LImpeNLss0+pXADmwVyT8o6K/PAHOOWJ4B8BuJpbieSeeV5ZpWLySOxZnYnJJJ6knvX0tKo6iulZfmfm+LoRoScW7y622X+b/ACGVq+FZtVGs29npV9NaS3cqxMUb5SCcZZejADJ5B6Vo2vh/7L4BufFWooVW5uBY6ZG3/LV/vSy+6oo2/wC83tVPwh+7vL68HDWunXMqH0YxlAfzerck0zKFOUJxv11+Rf1/xTbajqkzyaDpFzaofKtswtC6wrwgzEyjpz06k1n/ANs6avMfhbSg3+3LcOPyMmKxsY4HaimoJKxMq85O7/JG/L4y8RfYDp1pqUmm2JOfs1h+4jz2yF5P4k1V8UTWt3qK6jatGPtsazzRJx5UxyJFx2BYFh7MKyqKFBJ3QpVZyVpO56h+y1/yWjSf+uNz/wCimr3b9rNBL8IJomJCvqVkpwcHBnUcV4T+y1/yWjSf+uNz/wCimr6o+KPg6Lx14VbQZr+SxQ3MNx5scYc5jcPjB9cYrxcx/ir0PsuHf91fq/yR578ANDtPDfxR+JmiWMt3Nb2s+nqj3U5mlOYWY7nbk8k9e2K0b2SOL9quCWV1jRPB0jMzHAUC55JPauy8MeDotD8a+KPEyX8k7+IJLd3gaMAQ+VHsAB6nPXmsH4o/C7/hMdai1rT/ABNf+H777C+m3UltEkgubVzloyG6c559+lcB7x6Fbzw3Nuk9vLHNDIAyOjBlYeoI4NeU/sq/8k5vv+w/qP8A6PNej+FtEsfDfhvTtA0xWWz0+3S3hDHJ2qMDJ9a4v4e/DK88G67LPa+NNUn0U3Nzcw6QYY0jDzHLF3HzPg8jpj86AM3RP+TrNf8A+xVtv/R9N+JH/Jw3w2/69NV/9ErXa23g+1t/iZdeOI7uX7RdaWmnS25UFMLJvDg9Qe2Kzfid8P28X3mk6rpviG98O61pLSi1vrWNZCElULIhVuDkAc9qAML9lL/kiWlf9fF3/wClEleQeKv+QN48/wCyn2v/AKMWvpX4e+FbDwV4QsfDenSzTQWitmWUjfI7MWdjjjliTgdK4vVPg3aX1nrlu2vXKDVvEkWvsRbqfLZGB8oc8g469aAPUl6fjRSjiigD/9k=" alt="GHA">
+    <div><h1><span class="pf-em">Global Health Action</span></h1><p>Internship Program Dashboard</p></div>
+  </div>
+  <button class="tbtn" onclick="tog()" id="tb">☀️</button>
+</div>
+
+<div class="wrap">
+<div class="tabs">
+  <button class="tab on" onclick="sw('ov',this)">Overview</button>
+  <button class="tab" onclick="sw('map',this)">Map</button>
+  <button class="tab" onclick="sw('ct',this)">By Country</button>
+  <button class="tab" onclick="sw('data',this)">Dataset</button>
+</div>
+
+<div class="kpis">
+  <div class="kp"><div class="kp-l">👥 Interns</div><div class="kp-v">88</div><div class="kp-s">total records</div></div>
+  <div class="kp"><div class="kp-l">🌎 Countries</div><div class="kp-v">24</div><div class="kp-s">worldwide</div></div>
+  <div class="kp"><div class="kp-l">♀ Female</div><div class="kp-v">74%</div><div class="kp-s">65 of 88</div></div>
+  <div class="kp"><div class="kp-l">📅 Years</div><div class="kp-v">6</div><div class="kp-s">2021–2026</div></div>
+</div>
+
+<!-- ══ OVERVIEW ══ -->
+<div id="s-ov" class="sec on">
+  <div class="ov-row">
+    <div class="cd">
+      <h3><i></i>By Gender</h3>
+      <div class="ch-donut"><canvas id="c1"></canvas></div>
+      <div class="gb"><span style="background:#3b82f6"></span>Female<div class="gb-t"><div class="gb-f" style="width:73.9%;background:#3b82f6"></div></div><b>73.9% (n=65)</b></div>
+      <div class="gb"><span style="background:#22c55e"></span>Male<div class="gb-t"><div class="gb-f" style="width:26.1%;background:#22c55e"></div></div><b>26.1% (n=23)</b></div>
+    </div>
+    <div class="cd">
+      <h3><i></i>By Year</h3>
+      <div class="ch-wrap"><canvas id="c2"></canvas></div>
+    </div>
+    <div class="cd">
+      <h3><i></i>By Cohort</h3>
+      <div class="ch-donut"><canvas id="c3"></canvas></div>
+      <div id="cLeg"></div>
+    </div>
+  </div>
+  <div class="cd">
+    <h3><i></i>All Countries of Origin</h3>
+    <div class="ch-scroll"><div class="ch-scroll-inner"><canvas id="c4"></canvas></div></div>
+  </div>
+</div>
+
+<!-- ══ MAP ══ -->
+<div id="s-map" class="sec">
+  <div class="cd mc">
+    <h2><em class="pf-em">Global Health Action</em> Internship Map</h2>
+    <p class="sub">88 interns from 24 countries — colored by intern count</p>
+    <div id="mapBox"><div class="mtt" id="mTip"></div></div>
+    <div class="ml"><span>0</span><div class="ml-bar" id="mBar"></div><span>26</span><span style="margin-left:4px">(interns)</span></div>
+  </div>
+</div>
+
+<!-- ══ BY COUNTRY ══ -->
+<div id="s-ct" class="sec">
+  <div class="cd">
+    <h3><i></i>Distribution by Country of Origin</h3>
+    <div id="cBars"></div>
+  </div>
+</div>
+
+<!-- ══ DATASET ══ -->
+<div id="s-data" class="sec">
+  <div class="cd" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px">
+    <div>
+      <h3 style="margin-bottom:2px"><i></i>Intern Dataset</h3>
+      <div style="font-size:11px;color:var(--ts)" id="ds-count">Loading…</div>
+    </div>
+    <button onclick="downloadCSV()" style="background:var(--ac);color:#000;border:none;border-radius:8px;padding:9px 20px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;transition:opacity .2s" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+      ⬇ Download Data
+    </button>
+  </div>
+  <div class="cd" style="padding:0;overflow:auto">
+    <table id="ds-table" style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead>
+        <tr style="border-bottom:1px solid var(--bd)">
+          <th style="padding:10px 14px;text-align:left;color:var(--ts);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">#</th>
+          <th style="padding:10px 14px;text-align:left;color:var(--ts);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">Name</th>
+          <th style="padding:10px 14px;text-align:left;color:var(--ts);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">Country of Origin</th>
+          <th style="padding:10px 14px;text-align:left;color:var(--ts);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">Cohort</th>
+          <th style="padding:10px 14px;text-align:left;color:var(--ts);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap">Year</th>
+        </tr>
+      </thead>
+      <tbody id="ds-body">
+        <tr><td colspan="5" style="padding:24px;text-align:center;color:var(--ts)">Loading data…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="ft"><em>Global Health Action</em> Internship Program · 24 countries · 88 records · 2021–2026</div>
+</div>
+
+<script>
+/* ── APPS SCRIPT URL (paste yours here after deploying) ── */
+var SHEET_URL = 'https://script.google.com/macros/s/AKfycbyc8TYGwny9gJ_uuHi-mG_BAe_raOBU4GTOWwz0K1bq12g6wbwnRJ50_B3qamPvhZZMIw/exec';
+
+/* ── PRE-EMBEDDED DATA from Google Sheet (auto-shown while live data loads)
+   Format: [Name, Gender, Country of Origin, Cohort, Year] ── */
+var FALLBACK=[
+["Busayo Ogunlusi","Female","Nigeria","Summer Cohort","2024"],
+["Cathy Zhuang","Female","China","Summer Cohort","2024"],
+["N'Faly Keita","Male","Mali","Summer Cohort","2024"],
+["Yujie Amelia Zhou","Female","China","Fall Cohort","2024"],
+["Tiffany Tai","Female","USA","Fall Cohort","2024"],
+["Alissar Moussallem","Female","Lebanon","Fall Cohort","2024"],
+["Hannah Yi","Female","USA","Spring Cohort","2025"],
+["Michelle Argueta","Female","El Salvador","Fall Cohort","2024"],
+["Teresa Lee","Female","USA","Fall Cohort","2024"],
+["Jaibir Singh Khera","Male","USA","Summer Cohort","2025"],
+["Jara Crawford","Female","USA","Spring Cohort","2025"],
+["Jaibir Singh Khera","Male","USA","Spring Cohort","2025"],
+["Becca Dasema","Female","USA","Spring Cohort","2025"],
+["Dawn Bangi","Female","USA","Spring Cohort","2025"],
+["Diego Serfin Martinez","Male","Mexico","Spring Cohort","2025"],
+["Elisha Maleeks","Male","Nigeria","Spring Cohort","2025"],
+["Adejumoke Gloria Oluwayinka","Female","Nigeria","Spring Cohort","2025"],
+["Ali Muazu Mohammed","Male","Nigeria","Spring Cohort","2025"],
+["Abubaker Sekatuka","Male","Uganda","Spring Cohort","2025"],
+["Alyssa Goodman","Female","USA","Summer Cohort","2025"],
+["Basel Alberto","Male","Jordan","Summer Cohort","2025"],
+["Bshair Mobarki","Female","Saudi Arabia","Summer Cohort","2025"],
+["Bwalya Mubanga","Male","Zambia","Summer Cohort","2025"],
+["Dani Blalock","Female","USA","Summer Cohort","2025"],
+["Juliana Upchurch","Female","USA","Summer Cohort","2025"],
+["Kimberly Toro","Female","USA","Summer Cohort","2025"],
+["Lauren Eaton","Female","USA","Summer Cohort","2025"],
+["Mahima Singeetham","Female","USA","Fall Cohort","2025"],
+["Shiva Chitta","Male","India","Summer Cohort","2025"],
+["Ximing Ran","Male","China","Fall Cohort","2025"],
+["Mishaal Majeed","Female","South Africa","Fall Cohort","2025"],
+["Rutuja Pawar","Female","India","Fall Cohort","2025"],
+["Urvi Banarjee","Female","USA","Fall Cohort","2025"],
+["Alyssa Goodman","Female","USA","Fall Cohort","2023"],
+["Kaushik Paladugu","Male","USA","Fall Cohort","2025"],
+["Laura Vargas","Female","USA","Spring Cohort","2026"],
+["IniOluwa Atowoju","Female","Nigeria","Spring Cohort","2026"],
+["Marie Michelle Milord","Female","Haiti","Spring Cohort","2026"],
+["Ellie Bai","Female","China","Spring Cohort","2026"],
+["Jolene Ren","Female","China","Spring Cohort","2026"],
+["Leila Barakat","Female","Lebanon","Spring Cohort","2026"],
+["Mary Cate Sullivan","Female","USA","Spring Cohort","2026"],
+["Mayuri Makan","Female","Zimbabwe","Spring Cohort","2026"],
+["Teni Akinosho","Female","Nigeria","Spring Cohort","2026"],
+["Urja Atre","Female","USA","Spring Cohort","2026"],
+["Carillus Odhiambo","Male","Kenya","Spring Cohort","2026"],
+["Esther Uwensuyi-Edosomwan","Female","Nigeria","",""],
+["Mayaline Youssef","Female","Lebanon","",""],
+["Bianca Nkwocha","Female","Nigeria","",""],
+["Oluwasefunmi Olateru-Olagbegi","Female","Nigeria","",""],
+["Winnie Basilua","Female","Congo","",""],
+["Yasmine Assad","Female","Egypt","",""],
+["Brielle Berkowitz","Female","USA","",""],
+["Fatima Jaber","Female","Lebanon","",""]
+];
+
+/* ── STATIC CONFIG ── */
+var NM={"USA":"United States of America","Congo":"Dem. Rep. Congo","South Africa":"South Africa","El Salvador":"El Salvador","Saudi Arabia":"Saudi Arabia","Gaza":"Palestine","Zimbabwe":"Zimbabwe"};
+var LO={"Lebanon":[8,-8],"Jordan":[12,4],"El Salvador":[0,10],"Haiti":[10,-8],"Ghana":[0,12],"Uganda":[10,-6],"Zambia":[0,8],"Zimbabwe":[0,10],"Mali":[-8,0],"Egypt":[0,-4],"South Africa":[0,6],"Kenya":[10,0],"Mexico":[0,8],"Congo":[0,8],"India":[12,0],"China":[10,4],"Nigeria":[-10,0]};
+var GR=['#084c24','#0d6e3a','#14854a','#1a9960','#25b070','#2fc882','#45d496','#66ddaa','#88e6be','#aaf0d2','#b4f4d8','#c0f7e0'];
+var CC=["#f9a729","#fd6f30","#eb1e2c","#f9d23c"];
+
+/* ── GLOBALS ── */
+var C=[],YL=[],YV=[],YC=[],CN=[],CV=[],CL={};
+var rawRows=[];
+var dk=true,wd=null;
+
+/* ── PROCESS ROWS ── */
+function processRows(rows){
+  rawRows=rows;
+
+  /* Country counts */
+  var cMap={};
+  rows.forEach(function(r){
+    var raw=String(r['Country of Origin']||'').trim();
+    if(!raw)return;
+    if(raw==='Zimbawe')raw='Zimbabwe';
+    cMap[raw]=(cMap[raw]||0)+1;
+  });
+  C=Object.entries(cMap).sort(function(a,b){return b[1]-a[1]}).map(function(e){return{c:e[0],n:e[1]}});
+  CL={};
+  C.forEach(function(d){var n=NM[d.c]||d.c;CL[n]=(CL[n]||0)+d.n});
+
+  /* Year counts */
+  var yMap={};
+  rows.forEach(function(r){var y=String(r['Year']||'').trim();if(y)yMap[y]=(yMap[y]||0)+1});
+  YL=Object.keys(yMap).sort();
+  YV=YL.map(function(y){return yMap[y]});
+  var yC=['#0f5132','#1a7a4e','#25a06a','#3ecf8e','#6edeb0','#a8f0d0','#c0f7e0','#d4fae8'];
+  YC=YL.map(function(_,i){return yC[Math.min(i,yC.length-1)]});
+
+  /* Cohort counts */
+  var sm=0,fl=0,sp=0,bo=0;
+  rows.forEach(function(r){
+    var c=String(r['Cohort']||'').toLowerCase();
+    if(c.includes('summer')&&c.includes('fall'))bo++;
+    else if(c.includes('summer'))sm++;
+    else if(c.includes('fall'))fl++;
+    else if(c.includes('spring'))sp++;
+  });
+  CN=[];CV=[];
+  if(sm)  {CN.push('Summer');CV.push(sm);}
+  if(sp)  {CN.push('Spring');CV.push(sp);}
+  if(fl)  {CN.push('Fall');  CV.push(fl);}
+  if(bo)  {CN.push('Summer&Fall');CV.push(bo);}
+
+  /* Gender */
+  var fem=0,mal=0;
+  rows.forEach(function(r){
+    var g=String(r['Gender']||'').toLowerCase();
+    if(g.includes('female'))fem++;
+    else if(g.includes('male'))mal++;
+  });
+
+  /* KPI cards */
+  var tot=rows.length,ctrs=Object.keys(cMap).length;
+  var fp=tot?Math.round(fem/tot*100):0;
+  var yr1=YL[0]||'',yr2=YL[YL.length-1]||'';
+  document.querySelector('.kpis').innerHTML=
+    '<div class="kp"><div class="kp-l">👥 Interns</div><div class="kp-v">'+tot+'</div><div class="kp-s">total records</div></div>'+
+    '<div class="kp"><div class="kp-l">🌎 Countries</div><div class="kp-v">'+ctrs+'</div><div class="kp-s">worldwide</div></div>'+
+    '<div class="kp"><div class="kp-l">♀ Female</div><div class="kp-v">'+fp+'%</div><div class="kp-s">'+fem+' of '+tot+'</div></div>'+
+    '<div class="kp"><div class="kp-l">📅 Years</div><div class="kp-v">'+YL.length+'</div><div class="kp-s">'+yr1+'–'+yr2+'</div></div>';
+
+  /* Gender bars */
+  var mp=tot?Math.round(mal/tot*100):0;
+  var gbs=document.querySelectorAll('.gb');
+  if(gbs[0])gbs[0].innerHTML='<span style="background:#3b82f6"></span>Female<div class="gb-t"><div class="gb-f" style="width:'+fp+'%;background:#3b82f6"></div></div><b>'+fp+'% (n='+fem+')</b>';
+  if(gbs[1])gbs[1].innerHTML='<span style="background:#22c55e"></span>Male<div class="gb-t"><div class="gb-f" style="width:'+mp+'%;background:#22c55e"></div></div><b>'+mp+'% (n='+mal+')</b>';
+
+  /* Footer */
+  var ft=document.querySelector('.ft');
+  if(ft)ft.innerHTML='<em>Global Health Action</em> Internship Program · '+ctrs+' countries · '+tot+' records · '+yr1+'–'+yr2;
+
+  /* Map subtitle */
+  var ms=document.querySelector('.mc .sub');
+  if(ms)ms.textContent=tot+' interns from '+ctrs+' countries — colored by intern count';
+
+  /* Dataset table */
+  buildTable();
+}
+
+/* ── DATASET TABLE ── */
+function buildTable(){
+  var rows=rawRows;
+  var tot=rows.length;
+  var cnt=document.getElementById('ds-count');
+  if(cnt)cnt.textContent=tot+' intern records';
+
+  var html='';
+  rows.forEach(function(r,i){
+    var name=r['Name']||'';
+    var orig=r['Country of Origin']||'—';
+    if(orig==='Zimbawe')orig='Zimbabwe';
+    var coh=r['Cohort']||'—';
+    var yr=r['Year']||'—';
+    var bg=(i%2===0)?'':'background:rgba(255,255,255,.02)';
+    html+='<tr style="border-bottom:.5px solid var(--bd);'+bg+'">'+
+      '<td style="padding:9px 14px;color:var(--tt);font-size:11px">'+(i+1)+'</td>'+
+      '<td style="padding:9px 14px;color:var(--hl);font-weight:600">'+name+'</td>'+
+      '<td style="padding:9px 14px;color:var(--tx)">'+orig+'</td>'+
+      '<td style="padding:9px 14px"><span style="background:var(--sf2);border:1px solid var(--bd);border-radius:5px;padding:2px 8px;font-size:11px;color:var(--ac)">'+coh+'</span></td>'+
+      '<td style="padding:9px 14px;color:var(--tx)">'+yr+'</td>'+
+    '</tr>';
+  });
+  var body=document.getElementById('ds-body');
+  if(body)body.innerHTML=html||'<tr><td colspan="5" style="padding:24px;text-align:center;color:var(--ts)">No data</td></tr>';
+}
+
+/* ── DOWNLOAD CSV ── */
+function downloadCSV(){
+  var rows=rawRows;
+  var lines=['"Name","Country of Origin","Cohort","Year"'];
+  rows.forEach(function(r){
+    var n=String(r['Name']||'').replace(/"/g,'""');
+    var o=String(r['Country of Origin']||'').replace(/"/g,'""');
+    if(o==='Zimbawe')o='Zimbabwe';
+    var c=String(r['Cohort']||'').replace(/"/g,'""');
+    var y=String(r['Year']||'').replace(/"/g,'""');
+    lines.push('"'+n+'","'+o+'","'+c+'","'+y+'"');
+  });
+  var csv=lines.join('\r\n');
+  var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url;a.download='GHA_Internship_Dataset.csv';
+  document.body.appendChild(a);a.click();
+  document.body.removeChild(a);URL.revokeObjectURL(url);
+}
+
+/* ── LOAD DATA ── */
+function loadData(){
+  /* Show fallback immediately — real data, no delay */
+  var fbRows=FALLBACK.map(function(r){
+    return{Name:r[0],Gender:r[1],'Country of Origin':r[2],Cohort:r[3],Year:r[4]};
+  });
+  processRows(fbRows);
+  renderAll();
+
+  /* Try live fetch in background — silently updates if available */
+  if(SHEET_URL&&SHEET_URL!==''){
+    fetch(SHEET_URL)
+      .then(function(r){return r.json();})
+      .then(function(rows){processRows(rows);renderAll();})
+      .catch(function(){/* silently keep embedded data */});
+  }
+}
+
+/* ── UI HELPERS ── */
+function renderAll(){init();bBars();bMap();}
+function tog(){dk=!dk;document.body.classList.toggle('light',!dk);document.getElementById('tb').textContent=dk?'☀️':'🌙';document.querySelector('meta[name=theme-color]').content=dk?'#060a0f':'#f3f5f7';renderAll();}
+function sw(id,b){
+  document.querySelectorAll('.sec').forEach(function(s){s.classList.remove('on')});
+  document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('on')});
+  document.getElementById('s-'+id).classList.add('on');b.classList.add('on');
+  if(id==='map')setTimeout(bMap,80);
+}
+
+/* ── CHARTS ── */
+var ch={};
+function kill(){for(var k in ch)if(ch[k]&&ch[k].destroy)ch[k].destroy();ch={};}
+
+function init(){
+  if(!C.length)return;kill();
+  var s='#999999',t=dk?'#cccccc':'#333333';
+  Chart.defaults.font.family="'Open Sans',sans-serif";
+  var tt={backgroundColor:dk?'#1a2636':'#fff',titleColor:t,bodyColor:s,borderColor:dk?'#2a3a4d':'#dce1e8',borderWidth:1,cornerRadius:8,padding:8};
+
+  var fem=0,mal=0;
+  rawRows.forEach(function(r){var g=String(r['Gender']||'').toLowerCase();if(g.includes('female'))fem++;else if(g.includes('male'))mal++;});
+  ch.g=new Chart(document.getElementById('c1'),{type:'doughnut',data:{labels:['Female','Male'],datasets:[{data:[fem,mal],backgroundColor:['#3b82f6','#22c55e'],borderWidth:0}]},options:{cutout:'60%',plugins:{legend:{display:false},tooltip:tt},responsive:true,maintainAspectRatio:true}});
+
+  var ylp={id:'yl',afterDatasetsDraw:function(chart){var ctx=chart.ctx;ctx.save();chart.data.datasets.forEach(function(ds,di){var m=chart.getDatasetMeta(di);m.data.forEach(function(bar,i){var v=ds.data[i];if(v>0){ctx.fillStyle=t;ctx.font="bold 12px 'Open Sans'";ctx.textAlign='center';ctx.textBaseline='bottom';ctx.fillText(v,bar.x,bar.y-4)}})});ctx.restore();}};
+  ch.y=new Chart(document.getElementById('c2'),{type:'bar',data:{labels:YL,datasets:[{data:YV,backgroundColor:YC,borderRadius:6,borderSkipped:false,barPercentage:.6}]},options:{layout:{padding:{top:18}},plugins:{legend:{display:false},tooltip:tt},scales:{x:{grid:{display:false},ticks:{color:s,font:{size:11}}},y:{display:false}},responsive:true,maintainAspectRatio:false},plugins:[ylp]});
+
+  if(CV.length){
+    ch.c=new Chart(document.getElementById('c3'),{type:'pie',data:{labels:CN,datasets:[{data:CV,backgroundColor:CC.slice(0,CN.length),borderWidth:0}]},options:{plugins:{legend:{display:false},tooltip:tt},responsive:true,maintainAspectRatio:true}});
+    var tot=CV.reduce(function(a,b){return a+b},0);
+    var lh='';CN.forEach(function(n,i){var p=(CV[i]/tot*100).toFixed(1);lh+='<div class="cl"><span style="background:'+CC[i]+'"></span><em>'+n+'</em><b>'+p+'% (n='+CV[i]+')</b></div>';});
+    document.getElementById('cLeg').innerHTML=lh;
+  }
+
+  var blp={id:'bl',afterDatasetsDraw:function(chart){var ctx=chart.ctx;ctx.save();chart.data.datasets.forEach(function(ds,di){var m=chart.getDatasetMeta(di);m.data.forEach(function(bar,i){var v=ds.data[i];if(v>0){ctx.fillStyle=t;ctx.font="bold 11px 'Open Sans'";ctx.textAlign='center';ctx.textBaseline='bottom';ctx.fillText(v,bar.x,bar.y-4)}})});ctx.restore();}};
+  var cols=C.map(function(_,i){return GR[Math.min(i,GR.length-1)];});
+  ch.a=new Chart(document.getElementById('c4'),{type:'bar',data:{labels:C.map(function(d){return d.c;}),datasets:[{data:C.map(function(d){return d.n;}),backgroundColor:cols,borderRadius:4,borderSkipped:false,barPercentage:.8}]},options:{layout:{padding:{top:20}},plugins:{legend:{display:false},tooltip:tt},scales:{x:{grid:{display:false},ticks:{color:s,font:{size:10},maxRotation:55,minRotation:40,autoSkip:false}},y:{grid:{color:dk?'#1a2636':'#e8ecf0',lineWidth:.5},ticks:{color:s,font:{size:10}},beginAtZero:true}},responsive:true,maintainAspectRatio:false},plugins:[blp]});
+}
+
+/* ── MAP ── */
+var WU='https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
+function cs(){var mx=C.length?C[0].n:20;return dk?d3.scaleSequential(d3.interpolateGreens).domain([0,mx]):d3.scaleSequential(function(t){return d3.interpolateGreens(t*.85+.15)}).domain([0,mx]);}
+
+function bMap(){
+  if(!C.length)return;
+  var box=document.getElementById('mapBox'),tip=document.getElementById('mTip');
+  d3.select('#mapBox svg').remove();
+  var W=box.clientWidth||800,H=Math.round(W*.52);
+  var svg=d3.select('#mapBox').append('svg').attr('viewBox','0 0 '+W+' '+H).style('background',dk?'#0c1219':'#e8ecf0').style('border-radius','10px');
+  var proj=d3.geoNaturalEarth1().fitSize([W-20,H-20],{type:'Sphere'}).translate([W/2,H/2]);
+  var path=d3.geoPath(proj),col=cs(),lnd=dk?'#162230':'#d4dce4',bdr=dk?'#1e3040':'#b8c4d0';
+  svg.append('path').datum(d3.geoGraticule10()).attr('d',path).attr('fill','none').attr('stroke',dk?'#1a2a3a':'#c8d4e0').attr('stroke-width',.3);
+  function go(world){
+    var ft=topojson.feature(world,world.objects.countries);
+    svg.selectAll('.c').data(ft.features).join('path').attr('class','c').attr('d',path).attr('fill',function(d){return(CL[d.properties.name]||0)>0?col(CL[d.properties.name]):lnd;}).attr('stroke',bdr).attr('stroke-width',.4)
+    .on('mouseover',function(e,d){var n=d.properties.name,ct=CL[n]||0;d3.select(this).attr('stroke','#3ecf8e').attr('stroke-width',1.5).raise();if(ct>0){tip.innerHTML='<b>'+n+'</b>: '+ct;tip.style.opacity=1;}})
+    .on('mousemove',function(e){var r=box.getBoundingClientRect();tip.style.left=(e.clientX-r.left+12)+'px';tip.style.top=(e.clientY-r.top-10)+'px';})
+    .on('mouseout',function(){d3.select(this).attr('stroke',bdr).attr('stroke-width',.4);tip.style.opacity=0;})
+    .on('touchstart',function(e,d){e.preventDefault();var n=d.properties.name,ct=CL[n]||0;svg.selectAll('.c').attr('stroke',bdr).attr('stroke-width',.4);d3.select(this).attr('stroke','#3ecf8e').attr('stroke-width',1.5).raise();if(ct>0){var t=e.touches[0],r=box.getBoundingClientRect();tip.innerHTML='<b>'+n+'</b>: '+ct;tip.style.opacity=1;tip.style.left=(t.clientX-r.left+12)+'px';tip.style.top=(t.clientY-r.top-30)+'px';}},{passive:false})
+    .on('touchend',function(){setTimeout(function(){tip.style.opacity=0;},1500);});
+    var mx=C.length?C[0].n:20,g=svg.append('g');
+    ft.features.filter(function(d){return CL[d.properties.name];}).forEach(function(d){
+      var nm=d.properties.name,ct=CL[nm],sn=nm;
+      C.forEach(function(cd){if(NM[cd.c]===nm)sn=cd.c;});
+      var cx=path.centroid(d)[0],cy=path.centroid(d)[1],off=LO[sn]||[0,0],lx=cx+off[0]*(W/900),ly=cy+off[1]*(W/900);
+      var fs=W<500?(ct>=10?8:6):ct>=10?11:ct>=3?9:7.5,tx=sn+' ('+ct+')';
+      if(Math.abs(off[0])>5||Math.abs(off[1])>5)g.append('line').attr('x1',cx).attr('y1',cy).attr('x2',lx).attr('y2',ly).attr('stroke',dk?'rgba(255,255,255,.25)':'rgba(0,0,0,.2)').attr('stroke-width',.6);
+      g.append('rect').attr('x',lx-tx.length*fs*.3).attr('y',ly-fs*.65).attr('width',tx.length*fs*.6).attr('height',fs*1.3).attr('rx',3).attr('fill',dk?'rgba(0,0,0,.55)':'rgba(255,255,255,.7)');
+      g.append('text').attr('x',lx).attr('y',ly).attr('text-anchor','middle').attr('dominant-baseline','central').attr('fill',dk?'#fff':'#1a1a2e').attr('font-size',fs).attr('font-weight',ct>=5?700:400).attr('font-family',"'Open Sans'").text(tx);
+    });
+    document.getElementById('mBar').style.background='linear-gradient(to right,'+lnd+','+col(Math.round(mx*.3))+','+col(Math.round(mx*.6))+','+col(mx)+')';
+  }
+  if(wd)go(wd);else d3.json(WU).then(function(w){wd=w;go(w);});
+}
+
+/* ── COUNTRY BARS ── */
+function bBars(){
+  if(!C.length)return;
+  var h='',mx=C[0].n;
+  C.forEach(function(d,i){var p=(d.n/mx)*100,c=GR[Math.min(i,GR.length-1)];h+='<div class="cb"><span class="cb-n">'+d.c+'</span><div class="cb-bg"><div class="cb-f" style="width:'+p+'%;min-width:22px;background:'+c+'"><span>'+d.n+'</span></div></div></div>';});
+  document.getElementById('cBars').innerHTML=h;
+}
+
+/* ── START ── */
+loadData();
+window.addEventListener('resize',function(){var a=document.querySelector('.sec.on');if(a&&a.id==='s-map')bMap();});
+
+</script>
+</body>
